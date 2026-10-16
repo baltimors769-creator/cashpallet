@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Master Pallet — Витрина лотов</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --hint-color: #94a3b8;
+            --accent-color: #10b981;
+            --accent-hover: #059669;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --blue-color: #3b82f6;
+            --border-radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding-bottom: 90px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            padding: 20px 16px 12px;
+            background: linear-gradient(180deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0) 100%);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Панель администратора */
+        .admin-bar {
+            display: none;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 14px;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-bar.active {
+            display: flex;
+        }
+
+        .admin-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .admin-btn {
+            flex: 1;
+            background: var(--blue-color);
+            color: #fff;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .admin-btn.success {
+            background: var(--accent-color);
+        }
+
+        .discount-banner {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 14px;
+            padding: 12px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .discount-text { font-size: 14px; font-weight: 600; }
+        .discount-sub { font-size: 12px; color: var(--hint-color); margin-top: 2px; }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #334155;
+            transition: .3s; border-radius: 26px;
+        }
+        .slider:before {
+            position: absolute; content: "";
+            height: 20px; width: 20px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 16px 12px;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab-btn {
+            background: var(--card-bg);
+            color: var(--hint-color);
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-color);
+            color: #fff;
+            border-color: var(--accent-color);
+        }
+
+        .tab-btn.limited-tab.active {
+            background: var(--warning-color);
+            border-color: var(--warning-color);
+            color: #0f172a;
+        }
+
+        .catalog-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            padding: 0 16px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.07);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .product-card.limited-card {
+            border: 1px solid rgba(245, 158, 11, 0.45);
+        }
+
+        .card-media {
+            position: relative;
+            height: 190px;
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .card-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            backdrop-filter: blur(6px);
+            color: #fff;
+        }
+
+        .video-indicator {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .card-body { padding: 14px; }
+        .card-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+        .card-desc { font-size: 13px; color: var(--hint-color); margin-bottom: 14px; line-height: 1.4; }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 12px;
+        }
+
+        .price-block { display: flex; flex-direction: column; }
+        .old-price { font-size: 12px; color: var(--hint-color); text-decoration: line-through; }
+        .current-price { font-size: 19px; font-weight: 800; color: #34d399; }
+
+        .btn-more {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .card-admin-controls {
+            display: flex;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(15, 23, 42, 0.6);
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .card-admin-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+        }
+        .card-admin-btn.edit { background: var(--blue-color); }
+        .card-admin-btn.delete { background: var(--danger-color); }
+        .card-admin-btn.move { background: #334155; flex: 0.4; }
+
+        .info-section {
+            margin: 20px 16px 0;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .info-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+        .info-item { display: flex; gap: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.4; color: #cbd5e1; }
+        .info-item:last-child { margin-bottom: 0; }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.78);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal-content {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 520px;
+            max-height: 92vh;
+            border-radius: 24px 24px 0 0;
+            overflow-y: auto;
+            padding: 20px 16px 32px;
+            position: relative;
+            animation: slideUp 0.22s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .modal-media-box {
+            width: 100%;
+            height: 220px;
+            background: #0f172a;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .modal-media-box video,
+        .modal-media-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .tg-embed-container {
+            margin: 12px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0f172a;
+            padding: 8px;
+        }
+
+        .reviews-box {
+            margin: 14px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .review-link {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .order-btn {
+            width: 100%;
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 15px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--hint-color); margin-bottom: 6px; }
+        .form-input, .form-select, .form-textarea {
+            width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.12);
+            color: #fff; padding: 11px 12px; border-radius: 10px; font-size: 14px; outline: none;
+        }
+        .form-textarea { min-height: 75px; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .upload-box {
+            display: flex; align-items: center; gap: 12px; background: #0f172a;
+            padding: 10px; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.2); margin-bottom: 8px;
+        }
+        .upload-preview { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: #1e293b; flex-shrink: 0; }
+        .upload-btn-label {
+            background: var(--blue-color); color: #fff; padding: 8px 12px;
+            border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-top">
+            <div class="brand-title">📦 Master Pallet</div>
+            <div class="status-badge" id="statusBadge">🔥 Актуальное наличие</div>
+        </div>
+
+        <!-- Панель администратора (автопоказ по Telegram ID) -->
+        <div class="admin-bar" id="adminBar">
+            <div class="admin-bar-header">
+                <span>🔧 Режим администратора активен</span>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn success" onclick="openEditorModal()">➕ Добавить товар</button>
+                <button class="admin-btn" onclick="openSyncModal()">☁️ База / Экспорт</button>
+            </div>
+        </div>
+
+        <div class="discount-banner">
+            <div>
+                <div class="discount-text">🎁 Скидка на первый заказ</div>
+                <div class="discount-sub">Показать спеццены для новых клиентов</div>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="firstOrderToggle" checked onchange="renderCatalog()">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tabAll" onclick="filterCategory('all', this)">Все</button>
+        <button class="tab-btn" onclick="filterCategory('pallet', this)">Паллеты</button>
+        <button class="tab-btn" onclick="filterCategory('mini', this)">Mini Боксы</button>
+        <button class="tab-btn" onclick="filterCategory('special', this)">Спецлоты</button>
+        <button class="tab-btn limited-tab" onclick="filterCategory('limited', this)">⏳ Ограниченная серия</button>
+    </div>
+
+    <div class="catalog-grid" id="catalogGrid"></div>
+
+    <div class="info-section">
+        <div class="info-title">🚚 Доставка и оплата</div>
+        <div class="info-item">
+            <span>🚛</span>
+            <div><strong>Отправка:</strong> Транспортными компаниями (ТК), попутным транспортом (в 2 раза дешевле ТК) или самовывоз.</div>
+        </div>
+        <div class="info-item">
+            <span>📍</span>
+            <div><strong>Самовывоз:</strong> Москва, Зеленоград, 2-й Западный проезд, 1с10.</div>
+        </div>
+        <div class="info-item">
+            <span>💳</span>
+            <div><strong>Оплата:</strong> Наличными или переводом на карту.</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="productModal" onclick="closeModal('productModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal('productModal')">✕</button>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editorModal" onclick="closeModal('editorModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal('editorModal')">✕</button>
+            <h3 id="editorTitle" style="margin-bottom: 16px; font-size: 18px;">➕ Новый товар</h3>
+            
+            <input type="hidden" id="editId">
+
+            <div class="form-group">
+                <label class="form-label">Название лота *</label>
+                <input type="text" id="editTitle" class="form-input" placeholder="Например: 💙 Глобал 150">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Категория</label>
+                    <select id="editCategory" class="form-select">
+                        <option value="pallet">Паллеты</option>
+                        <option value="mini">Mini Боксы</option>
+                        <option value="special">Спецлоты</option>
+                        <option value="limited">⏳ Ограниченная серия</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Текст бейджа (плашки)</label>
+                    <input type="text" id="editBadge" class="form-input" placeholder="Хит / 10 коробок">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Обычная цена (₽)</label>
+                    <input type="number" id="editPriceReg" class="form-input" placeholder="Пусто = по запросу">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Цена на 1-й заказ (₽)</label>
+                    <input type="number" id="editPriceFirst" class="form-input" placeholder="Пусто = по запросу">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Фотография обложки</label>
+                <div class="upload-box">
+                    <img id="editImgPreview" class="upload-preview" src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=60">
+                    <div style="flex:1;">
+                        <label class="upload-btn-label">
+                            📷 Выбрать фото из галереи
+                            <input type="file" accept="image/*" style="display:none;" onchange="handleImageUpload(event)">
+                        </label>
+                        <div style="font-size:11px; color:var(--hint-color); margin-top:4px;">Авто-сжатие</div>
+                    </div>
+                </div>
+                <input type="text" id="editImage" class="form-input" placeholder="Или имя файла (mini.jpg)" oninput="document.getElementById('editImgPreview').src = this.value">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Краткое описание (на витрине)</label>
+                <input type="text" id="editShortDesc" class="form-input" placeholder="150 товаров...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Полное описание (внутри карточки)</label>
+                <textarea id="editFullDesc" class="form-textarea" placeholder="Подробное описание..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Ссылка на пост в Telegram (встроит видео/пост)</label>
+                <input type="text" id="editTgPost" class="form-input" placeholder="https://t.me/cashpallet/822">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Дополнительные ссылки на обзоры (Название | Ссылка)</label>
+                <textarea id="editReviews" class="form-textarea" placeholder="🎥 Обзор #1 | https://t.me/cashpallet/822"></textarea>
+            </div>
+
+            <button class="order-btn" onclick="saveProductFromModal()">💾 Сохранить товар</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="syncModal" onclick="closeModal('syncModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal('syncModal')">✕</button>
+            <h3 style="margin-bottom: 12px; font-size: 18px;">☁️ Публикация изменений</h3>
+            <p style="font-size: 13px; color: var(--hint-color); margin-bottom: 16px; line-height: 1.4;">
+                Скачайте готовый обновленный файл <code>index.html</code> и замените его на GitHub.
+            </p>
+            <button class="admin-btn success" style="width:100%; padding: 14px;" onclick="exportFullHtmlFile()">📥 Скачать готовый index.html</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        if (tg) tg.expand();
+
+        const MANAGER_USERNAME = "master_pallet";
+
+        // ВПИШИТЕ СЮДА ВАШ ЧИСЛОВОЙ TELEGRAM ID (например: [123456789])
+        const ADMIN_IDS = [];
+
+        const DEFAULT_PRODUCTS = [
+            {
+                id: "global-150",
+                title: "💙 Глобал 150",
+                category: "pallet",
+                badge: "Хит для старта",
+                badgeColor: "rgba(59, 130, 246, 0.85)",
+                priceRegular: 52500,
+                priceFirstOrder: 45000,
+                shortDesc: "150 товаров на паллете. Оптимальный микс ходовых позиций.",
+                fullDesc: "Полноценная паллета на 150 единиц товара. Отлично подходит для перепродажи на маркетплейсах, Авито или в розничных точках.",
+                image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/822",
+                reviews: [
+                    { label: "🎥 Обзор #1 (Пост 822)", url: "https://t.me/cashpallet/822" },
+                    { label: "🎥 Обзор #2 (Пост 875)", url: "https://t.me/cashpallet/875" }
+                ]
+            },
+            {
+                id: "global-pro",
+                title: "💚 Глобал PRO",
+                category: "pallet",
+                badge: "Крупная техника",
+                badgeColor: "rgba(16, 185, 129, 0.85)",
+                priceRegular: 60000,
+                priceFirstOrder: 50000,
+                shortDesc: "Крупные виды техники или люкс-копии одежды (небольшая доля).",
+                fullDesc: "Количество позиций всегда разное. Основной упор сделан на крупные виды бытовой техники и электроники, также попадаются люкс-копии одежды.",
+                image: "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/1223",
+                reviews: [
+                    { label: "📌 Подробный обзор (Пост 1223)", url: "https://t.me/cashpallet/1223" }
+                ]
+            },
+            {
+                id: "global-pro-plus",
+                title: "❤️ Глобал ПРО Плюс",
+                category: "pallet",
+                badge: "90% крупногабарит",
+                badgeColor: "rgba(239, 68, 68, 0.85)",
+                priceRegular: 75000,
+                priceFirstOrder: 65000,
+                shortDesc: "Микс товаров из разных категорий. 90% крупных позиций.",
+                fullDesc: "Максимальный лот с высокой маржинальностью: микс востребованных товаров из разных категорий, где 90% объема составляют крупные позиции.",
+                image: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/972",
+                reviews: [
+                    { label: "🎥 Видеообзор (Пост 972)", url: "https://t.me/cashpallet/972" }
+                ]
+            },
+            {
+                id: "global-mini-l",
+                title: "➕ Глобал Mini L (10 коробок)",
+                category: "mini",
+                badge: "10 коробок",
+                badgeColor: "rgba(139, 92, 246, 0.85)",
+                priceRegular: 25000,
+                priceFirstOrder: 18000,
+                shortDesc: "Компактный лот из 10 коробок. Доступна оплата наличными или на карту.",
+                fullDesc: "Идеальный формат для тестового закупа и проверки качества товара. В лот входит 10 коробок.",
+                image: "mini.jpg",
+                tgPost: "",
+                reviews: []
+            },
+            {
+                id: "global-mini-xl",
+                title: "➕ Глобал Mini XL (16 коробок)",
+                category: "mini",
+                badge: "16 коробок",
+                badgeColor: "rgba(139, 92, 246, 0.85)",
+                priceRegular: 33000,
+                priceFirstOrder: 30000,
+                shortDesc: "Увеличенный бокс-лот на 16 коробок с выгодной ценой за единицу.",
+                fullDesc: "Расширенный набор из 16 коробок. Отличный баланс между компактной доставкой и большим количеством ликвидного товара.",
+                image: "mini.jpg",
+                tgPost: "cashpallet/875",
+                reviews: [
+                    { label: "🎥 Смотреть обзор", url: "https://t.me/cashpallet/875" }
+                ]
+            },
+            {
+                id: "special-1773",
+                title: "📦 Спецлот #1773",
+                category: "special",
+                badge: "Спецкатегория",
+                badgeColor: "rgba(14, 165, 233, 0.85)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Нажмите «Открыть», чтобы посмотреть полный видеообзор и состав лота из канала.",
+                fullDesc: "Подробное описание и медиафайлы подгружаются напрямую из поста Telegram-канала @cashpallet.",
+                image: "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/1773",
+                reviews: [
+                    { label: "🔗 Открыть пост #1773 в Telegram", url: "https://t.me/cashpallet/1773" }
+                ]
+            },
+            {
+                id: "special-1576",
+                title: "📦 Спецлот #1576",
+                category: "special",
+                badge: "Спецкатегория",
+                badgeColor: "rgba(14, 165, 233, 0.85)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Нажмите «Открыть», чтобы посмотреть полный видеообзор и состав лота из канала.",
+                fullDesc: "Подробное описание и медиафайлы подгружаются напрямую из поста Telegram-канала @cashpallet.",
+                image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/1576",
+                reviews: [
+                    { label: "🔗 Открыть пост #1576 в Telegram", url: "https://t.me/cashpallet/1576" }
+                ]
+            },
+            {
+                id: "special-2022",
+                title: "📦 Спецлот #2022",
+                category: "special",
+                badge: "Спецкатегория",
+                badgeColor: "rgba(14, 165, 233, 0.85)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Нажмите «Открыть», чтобы посмотреть полный видеообзор и состав лота из канала.",
+                fullDesc: "Подробное описание и медиафайлы подгружаются напрямую из поста Telegram-канала @cashpallet.",
+                image: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/2022",
+                reviews: [
+                    { label: "🔗 Открыть пост #2022 в Telegram", url: "https://t.me/cashpallet/2022" }
+                ]
+            },
+            {
+                id: "limited-2060",
+                title: "🔥 Лимитированный лот #2060",
+                category: "limited",
+                badge: "⏳ Ограниченная серия",
+                badgeColor: "rgba(245, 158, 11, 0.9)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Временная позиция в ограниченном количестве. Полный обзор внутри карточки.",
+                fullDesc: "Лимитированная партия товара. Уточняйте остаток у менеджера перед бронированием.",
+                image: "mini.jpg",
+                tgPost: "cashpallet/2060",
+                reviews: [
+                    { label: "🔗 Открыть пост #2060 в Telegram", url: "https://t.me/cashpallet/2060" }
+                ]
+            },
+            {
+                id: "limited-1992",
+                title: "🔥 Лимитированный лот #1992",
+                category: "limited",
+                badge: "⏳ Ограниченная серия",
+                badgeColor: "rgba(245, 158, 11, 0.9)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Временная позиция в ограниченном количестве. Полный обзор внутри карточки.",
+                fullDesc: "Лимитированная партия товара. Уточняйте остаток у менеджера перед бронированием.",
+                image: "mini.jpg",
+                tgPost: "cashpallet/1992",
+                reviews: [
+                    { label: "🔗 Открыть пост #1992 в Telegram", url: "https://t.me/cashpallet/1992" }
+                ]
+            },
+            {
+                id: "limited-2016",
+                title: "🔥 Лимитированный лот #2016",
+                category: "limited",
+                badge: "⏳ Ограниченная серия",
+                badgeColor: "rgba(245, 158, 11, 0.9)",
+                priceRegular: null,
+                priceFirstOrder: null,
+                shortDesc: "Временная позиция в ограниченном количестве. Полный обзор внутри карточки.",
+                fullDesc: "Лимитированная партия товара. Уточняйте остаток у менеджера перед бронированием.",
+                image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+                tgPost: "cashpallet/2016",
+                reviews: [
+                    { label: "🔗 Открыть пост #2016 в Telegram", url: "https://t.me/cashpallet/2016" }
+                ]
+            }
+        ];
+
+        let PRODUCTS = [];
+        let currentCategory = 'all';
+        let isAdmin = false;
+
+        function initCatalogData() {
+            const saved = localStorage.getItem('mp_products');
+            if (saved) {
+                try {
+                    PRODUCTS = JSON.parse(saved);
+                } catch (e) {
+                    PRODUCTS = [...DEFAULT_PRODUCTS];
+                }
+            } else {
+                PRODUCTS = [...DEFAULT_PRODUCTS];
+            }
+
+            // Автопроверка прав администратора по Telegram ID
+            const tgUserId = tg?.initDataUnsafe?.user?.id;
+            if (tgUserId && ADMIN_IDS.includes(tgUserId)) {
+                isAdmin = true;
+                document.getElementById('adminBar').classList.add('active');
+            }
+
+            renderCatalog();
+        }
+
+        function formatPrice(num) {
+            if (!num) return "Цена в обзоре / по запросу";
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
+        }
+
+        function filterCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderCatalog();
+        }
+
+        function renderCatalog() {
+            const isFirstOrder = document.getElementById('firstOrderToggle').checked;
+            const grid = document.getElementById('catalogGrid');
+            document.getElementById('tabAll').textContent = `Все (${PRODUCTS.length})`;
+            grid.innerHTML = '';
+
+            const filtered = PRODUCTS.filter(p => currentCategory === 'all' || p.category === currentCategory);
+
+            filtered.forEach((item) => {
+                const hasPrice = item.priceRegular !== null && item.priceRegular !== "";
+                const activePrice = isFirstOrder ? item.priceFirstOrder : item.priceRegular;
+                
+                let oldPriceHtml = '';
+                if (hasPrice) {
+                    oldPriceHtml = isFirstOrder
+                        ? `<span class="old-price">Обычная: ${formatPrice(item.priceRegular)}</span>`
+                        : `<span class="old-price">Первый заказ: ${formatPrice(item.priceFirstOrder)}</span>`;
+                } else {
+                    oldPriceHtml = `<span class="old-price">См. описание поста</span>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'product-card' + (item.category === 'limited' ? ' limited-card' : '');
+
+                const adminControlsHtml = isAdmin ? `
+                    <div class="card-admin-controls" onclick="event.stopPropagation()">
+                        <button class="card-admin-btn move" onclick="moveProduct('${item.id}', -1)">⬆️</button>
+                        <button class="card-admin-btn move" onclick="moveProduct('${item.id}', 1)">⬇️</button>
+                        <button class="card-admin-btn edit" onclick="openEditorModal('${item.id}')">✏️ Изменить</button>
+                        <button class="card-admin-btn delete" onclick="deleteProduct('${item.id}')">🗑 Удалить</button>
+                    </div>
+                ` : '';
+
+                card.innerHTML = `
+                    <div onclick="openProductModal('${item.id}')">
+                        <div class="card-media">
+                            <img src="${item.image}" alt="${item.title}" onerror="this.src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80'">
+                            ${item.badge ? `<div class="card-badge" style="background: ${item.badgeColor \vert{}\vert{} 'rgba(59, 130, 246, 0.85)'}">${item.badge}</div>` : ''}
+                            ${((item.reviews && item.reviews.length > 0) || item.tgPost) ? '<div class="video-indicator">▶ Видеообзор внутри</div>' : ''}
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">${item.title}</div>
+                            <div class="card-desc">${item.shortDesc || ''}</div>
+                            <div class="card-footer">
+                                <div class="price-block">
+                                    ${oldPriceHtml}
+                                    <span class="current-price" style="${!hasPrice ? 'font-size:15px;' : ''}">${formatPrice(activePrice)}</span>
+                                </div>
+                                <button class="btn-more">Открыть →</button>
+                            </div>
+                        </div>
+                    </div>
+                    ${adminControlsHtml}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openProductModal(productId) {
+            const item = PRODUCTS.find(p => p.id === productId);
+            if (!item) return;
+
+            const isFirstOrder = document.getElementById('firstOrderToggle').checked;
+            const hasPrice = item.priceRegular !== null && item.priceRegular !== "";
+            const activePrice = isFirstOrder ? item.priceFirstOrder : item.priceRegular;
+
+            let reviewsHtml = '';
+            if (item.reviews && item.reviews.length > 0) {
+                reviewsHtml = `<div class="reviews-box">` +
+                    item.reviews.map(r => `<a href="${r.url}" target="_blank" class="review-link">${r.label}</a>`).join('') +
+                    `</div>`;
+            }
+
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="modal-media-box"><img src="${item.image}" alt="${item.title}" onerror="this.src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80'"></div>
+                <div class="card-title" style="font-size: 20px;">${item.title}</div>
+                <div style="margin: 8px 0 14px;">
+                    <span class="current-price" style="font-size: 22px;">${formatPrice(activePrice)}</span>
+                    ${hasPrice ? `<span style="font-size: 13px; color: var(--hint-color); margin-left: 8px;">(${isFirstOrder ? 'цена на первый заказ' : 'стандартная цена'})</span>` : ''}
+                </div>
+                <div class="card-desc" style="font-size: 14px; color: #e2e8f0; white-space: pre-line;">${item.fullDesc || ''}</div>
+                ${reviewsHtml}
+                <div id="tgEmbedBox" class="tg-embed-container" style="display: ${item.tgPost ? 'block' : 'none'};"></div>
+                <div style="background: rgba(255,255,255,0.04); padding: 12px; border-radius: 12px; font-size: 12px; color: var(--hint-color); margin-top: 12px;">
+                    📍 Самовывоз: Москва, Зеленоград, 2-й Западный проезд, 1с10<br>
+                    🚚 Доставка: ТК или попутным транспортом (в 2 раза дешевле ТК)<br>
+                    💳 Оплата: Наличными / переводом на карту
+                </div>
+                <button class="order-btn" onclick="orderProduct('${item.id}')">
+                    💬 Заказать у @${MANAGER_USERNAME}
+                </button>
+            `;
+
+            if (item.tgPost) {
+                const embedBox = document.getElementById('tgEmbedBox');
+                const cleanPost = item.tgPost.replace(/^https?:\/\/t\.me\//i, '').replace(/^\//, '');
+                const script = document.createElement('script');
+                script.async = true;
+                script.src = "https://telegram.org/js/telegram-widget.js?22";
+                script.setAttribute('data-telegram-post', cleanPost);
+                script.setAttribute('data-width', '100%');
+                script.setAttribute('data-dark', '1');
+                embedBox.appendChild(script);
+            }
+
+            document.getElementById('productModal').classList.add('open');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+            if (modalId === 'productModal') document.getElementById('modalBody').innerHTML = '';
+        }
+
+        function orderProduct(productId) {
+            const item = PRODUCTS.find(p => p.id === productId);
+            const isFirstOrder = document.getElementById('firstOrderToggle').checked;
+            const hasPrice = item.priceRegular !== null && item.priceRegular !== "";
+            const activePrice = isFirstOrder ? item.priceFirstOrder : item.priceRegular;
+            const orderNote = isFirstOrder ? "(Первый заказ)" : "(Повторный заказ)";
+            const cleanPost = item.tgPost ? item.tgPost.replace(/^https?:\/\/t\.me\//i, '') : '';
+            const postLink = cleanPost ? ` (https://t.me/${cleanPost})` : '';
+
+            const priceStr = hasPrice ? ` за ${formatPrice(activePrice)} ${orderNote}` : '';
+            const text = `Здравствуйте! Хочу заказать: ${item.title}${priceStr}${postLink}. Подскажите по актуальному наличию!`;
+            const url = `https://t.me/${MANAGER_USERNAME}?text=${encodeURIComponent(text)}`;
+
+            if (tg && tg.openTelegramLink) {
+                tg.openTelegramLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        function openEditorModal(productId = null) {
+            const isEdit = Boolean(productId);
+            document.getElementById('editorTitle').textContent = isEdit ? "✏️ Редактировать товар" : "➕ Добавить новый товар";
+
+            if (isEdit) {
+                const item = PRODUCTS.find(p => p.id === productId);
+                document.getElementById('editId').value = item.id;
+                document.getElementById('editTitle').value = item.title || '';
+                document.getElementById('editCategory').value = item.category || 'pallet';
+                document.getElementById('editBadge').value = item.badge || '';
+                document.getElementById('editPriceReg').value = item.priceRegular || '';
+                document.getElementById('editPriceFirst').value = item.priceFirstOrder || '';
+                document.getElementById('editImage').value = item.image || '';
+                document.getElementById('editImgPreview').src = item.image || '';
+                document.getElementById('editShortDesc').value = item.shortDesc || '';
+                document.getElementById('editFullDesc').value = item.fullDesc || '';
+                document.getElementById('editTgPost').value = item.tgPost ? `https://t.me/${item.tgPost.replace(/^https?:\/\/t\.me\//i, '')}` : '';
+                document.getElementById('editReviews').value = (item.reviews || []).map(r => `${r.label} | ${r.url}`).join('\n');
+            } else {
+                document.getElementById('editId').value = '';
+                document.getElementById('editTitle').value = '';
+                document.getElementById('editCategory').value = currentCategory === 'all' ? 'pallet' : currentCategory;
+                document.getElementById('editBadge').value = 'Новинка';
+                document.getElementById('editPriceReg').value = '';
+                document.getElementById('editPriceFirst').value = '';
+                document.getElementById('editImage').value = 'mini.jpg';
+                document.getElementById('editImgPreview').src = 'mini.jpg';
+                document.getElementById('editShortDesc').value = '';
+                document.getElementById('editFullDesc').value = '';
+                document.getElementById('editTgPost').value = '';
+                document.getElementById('editReviews').value = '';
+            }
+            document.getElementById('editorModal').classList.add('open');
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 720;
+                    const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+                    document.getElementById('editImage').value = compressedDataUrl;
+                    document.getElementById('editImgPreview').src = compressedDataUrl;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveProductFromModal() {
+            const title = document.getElementById('editTitle').value.trim();
+            if (!title) { alert("Укажите название товара!"); return; }
+
+            const existingId = document.getElementById('editId').value;
+            const cat = document.getElementById('editCategory').value;
+            const priceRegRaw = document.getElementById('editPriceReg').value.trim();
+            const priceFirstRaw = document.getElementById('editPriceFirst').value.trim();
+            const rawTgPost = document.getElementById('editTgPost').value.trim();
+            const cleanTgPost = rawTgPost ? rawTgPost.replace(/^https?:\/\/t\.me\//i, '').replace(/^\//, '') : '';
+
+            const reviewsLines = document.getElementById('editReviews').value.split('\n').map(l => l.trim()).filter(Boolean);
+            const reviews = reviewsLines.map((line, idx) => {
+                if (line.includes('|')) {
+                    const parts = line.split('|');
+                    return { label: parts[0].trim(), url: parts.slice(1).join('|').trim() };
+                }
+                return { label: `🎥 Обзор #${idx + 1}`, url: line };
+            });
+
+            const productObj = {
+                id: existingId || ('lot-' + Date.now()),
+                title: title,
+                category: cat,
+                badge: document.getElementById('editBadge').value.trim(),
+                badgeColor: (cat === 'mini' ? "rgba(139, 92, 246, 0.85)" : cat === 'special' ? "rgba(14, 165, 233, 0.85)" : cat === 'limited' ? "rgba(245, 158, 11, 0.9)" : "rgba(16, 185, 129, 0.85)"),
+                priceRegular: priceRegRaw ? Number(priceRegRaw) : null,
+                priceFirstOrder: priceFirstRaw ? Number(priceFirstOrder) : (priceRegRaw ? Number(priceRegRaw) : null),
+                shortDesc: document.getElementById('editShortDesc').value.trim(),
+                fullDesc: document.getElementById('editFullDesc').value.trim(),
+                image: document.getElementById('editImage').value.trim() || 'mini.jpg',
+                videoUrl: "",
+                tgPost: cleanTgPost,
+                reviews: reviews
+            };
+
+            if (existingId) {
+                const idx = PRODUCTS.findIndex(p => p.id === existingId);
+                if (idx !== -1) PRODUCTS[idx] = productObj;
+            } else {
+                PRODUCTS.unshift(productObj);
+            }
+
+            localStorage.setItem('mp_products', JSON.stringify(PRODUCTS));
+            closeModal('editorModal');
+            renderCatalog();
+        }
+
+        function deleteProduct(productId) {
+            const item = PRODUCTS.find(p => p.id === productId);
+            if (!item || !confirm(`Удалить лот «${item.title}»?`)) return;
+            PRODUCTS = PRODUCTS.filter(p => p.id !== productId);
+            localStorage.setItem('mp_products', JSON.stringify(PRODUCTS));
+            renderCatalog();
+        }
+
+        function moveProduct(productId, direction) {
+            const idx = PRODUCTS.findIndex(p => p.id === productId);
+            if (idx === -1) return;
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= PRODUCTS.length) return;
+            const temp = PRODUCTS[idx];
+            PRODUCTS[idx] = PRODUCTS[targetIdx];
+            PRODUCTS[targetIdx] = temp;
+            localStorage.setItem('mp_products', JSON.stringify(PRODUCTS));
+            renderCatalog();
+        }
+
+        function openSyncModal() { document.getElementById('syncModal').classList.add('open'); }
+
+        function exportFullHtmlFile() {
+            let fullHtml = document.documentElement.outerHTML;
+            const replacementBlock = `const DEFAULT_PRODUCTS = ${JSON.stringify(PRODUCTS, null, 12)};`;
+            fullHtml = fullHtml.replace(/const DEFAULT_PRODUCTS = \[[\s\S]*?\];/, replacementBlock);
+
+            const blob = new Blob(["<!DOCTYPE html>\n" + fullHtml], { type: "text/html;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "index.html";
+            link.click();
+        }
+
+        initCatalogData();
+    </script>
+</body>
+</html>
